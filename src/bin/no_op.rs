@@ -8,16 +8,15 @@ use std::net::SocketAddr;
 pub mod implementation;
 
 use clap::Parser;
-use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
 use implementation::no_op::NoOpReasonerConnector;
-use log::{error, info};
+use log::{info};
 use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 use policy_reasoner::logger::FileLogger;
 use policy_reasoner::sqlite::SqlitePolicyDataStore;
-use policy_reasoner::state;
 use reasonerconn::ReasonerConnector;
 use srv::Srv;
+use state_resolver::StateResolver;
 
 /***** HELPER FUNCTIONS *****/
 fn get_pauth_resolver() -> policy_reasoner::auth::JwtResolver<KidResolver> {
@@ -58,11 +57,19 @@ type DeliberationAuthResolverPlugin = JwtResolver<KidResolver>;
 /// The plugin used to interact with the policy store.
 type PolicyStorePlugin = SqlitePolicyDataStore;
 
-/// The plugin used to resolve policy input state.
-#[cfg(feature = "brane-api-resolver")]
-type StateResolverPlugin = crate::state::BraneApiResolver;
-#[cfg(not(feature = "brane-api-resolver"))]
-type StateResolverPlugin = state::FileStateResolver;
+type StateResolverPlugin = NoStateResolver;
+
+struct NoStateResolver;
+
+#[async_trait::async_trait]
+impl StateResolver for NoStateResolver {
+    type Error = std::convert::Infallible;
+
+    async fn get_state(&self, _use_case: String) -> Result<state_resolver::State, Self::Error> {
+        // Simply return a clone of the internal one
+        panic!("Get state called on a reasoner without state");
+    }
+}
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
@@ -92,13 +99,7 @@ where
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();
     let pstore: PolicyStorePlugin = SqlitePolicyDataStore::new("./data/policy.db");
 
-    let sresolve: StateResolverPlugin = match StateResolverPlugin::new(String::new()) {
-        Ok(sresolve) => sresolve,
-        Err(err) => {
-            error!("{}", err.trace());
-            std::process::exit(1);
-        },
-    };
+    let sresolve = StateResolverPlugin {};
 
     // Run them!
     let server = Srv::new(args.address, logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
