@@ -26,7 +26,7 @@ impl StateResolverError for std::convert::Infallible {
 /// The state that captures runtime context, returned by a [`StateResolver`] dynamically.
 ///
 /// This defines everything a policy gets to know about the state of the system at the time a policy is being checked.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct State {
     // Only scientists for now
     pub users:     Vec<User>,

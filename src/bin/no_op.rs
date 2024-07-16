@@ -66,8 +66,8 @@ impl StateResolver for NoStateResolver {
     type Error = std::convert::Infallible;
 
     async fn get_state(&self, _use_case: String) -> Result<state_resolver::State, Self::Error> {
-        // Simply return a clone of the internal one
-        panic!("Get state called on a reasoner without state");
+        // Return an empty state
+        Ok(Default::default())
     }
 }
 
